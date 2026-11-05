@@ -716,6 +716,16 @@ const uint8_t config_report_descriptor[] = {
     0x75, 0x08,               //   Report Size (8)
     0x95, 0x3F,               //   Report Count (63)
     0x81, 0x02,               //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0xC0,                     // End Collection,
+
+    // Read-only USB host status, feature report ID 102, 16 bytes.
+    0x09, 0x22,               // Usage (0x22)
+    0xA1, 0x01,               // Collection (Application)
+    0x09, 0x22,               //   Usage (0x22)
+    0x85, REPORT_ID_HOST_STATUS,
+    0x75, 0x08,               //   Report Size (8)
+    0x95, 0x10,               //   Report Count (16)
+    0xB1, 0x02,               //   Feature (Data,Var,Abs)
     0xC0,                     // End Collection
 };
 

@@ -41,6 +41,30 @@ uint32_t get_gpio_valid_pins_mask() {
 
 static bool reports_received;
 
+// One entry per USB device address; multiple HID interfaces count as one device.
+static uint16_t host_vid[CFG_TUH_DEVICE_MAX + 1] = {};
+static uint16_t host_pid[CFG_TUH_DEVICE_MAX + 1] = {};
+static uint8_t host_interface_count[CFG_TUH_DEVICE_MAX + 1] = {};
+
+uint16_t read_usb_host_status(uint8_t* buffer, uint16_t length) {
+    if (length < 16) return 0;
+    memset(buffer, 0, 16);
+    buffer[0] = 1; // Protocol version.
+    for (uint8_t addr = 1; addr <= CFG_TUH_DEVICE_MAX; ++addr) {
+        if (host_interface_count[addr] != 0) {
+            buffer[1] = 1; // At least one USB HID device is mounted.
+            buffer[2] = (uint8_t)(host_vid[addr] & 0xff);
+            buffer[3] = (uint8_t)(host_vid[addr] >> 8);
+            buffer[4] = (uint8_t)(host_pid[addr] & 0xff);
+            buffer[5] = (uint8_t)(host_pid[addr] >> 8);
+            buffer[6] = addr;
+            break;
+        }
+    }
+    return 16;
+}
+
+
 void read_report(bool* new_report, bool* tick) {
     *tick = get_and_clear_tick_pending();
 
@@ -71,6 +95,11 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
     uint16_t vid;
     uint16_t pid;
     tuh_vid_pid_get(dev_addr, &vid, &pid);
+    if (dev_addr > 0 && dev_addr <= CFG_TUH_DEVICE_MAX) {
+        host_vid[dev_addr] = vid;
+        host_pid[dev_addr] = pid;
+        if (host_interface_count[dev_addr] < 255) ++host_interface_count[dev_addr];
+    }
 
     tuh_itf_info_t itf_info;
     tuh_hid_itf_get_info(dev_addr, instance, &itf_info);
@@ -87,6 +116,12 @@ void umount_callback(uint8_t dev_addr, uint8_t instance) {
 
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
     printf("tuh_hid_umount_cb\n");
+    if (dev_addr > 0 && dev_addr <= CFG_TUH_DEVICE_MAX && host_interface_count[dev_addr]) {
+        if (--host_interface_count[dev_addr] == 0) {
+            host_vid[dev_addr] = 0;
+            host_pid[dev_addr] = 0;
+        }
+    }
     umount_callback(dev_addr, instance);
 }
 

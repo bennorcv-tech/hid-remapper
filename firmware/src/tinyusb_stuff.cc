@@ -195,7 +195,18 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
     return _desc_str;
 }
 
+// Implemented on the single-board USB-host variant only.
+#if !defined(PICO_DEFAULT_PIO_USB_DP_PIN)
+#else
+extern uint16_t read_usb_host_status(uint8_t* buffer, uint16_t length);
+#endif
+
 uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
+#if defined(PICO_DEFAULT_PIO_USB_DP_PIN)
+    if (itf == 1 && report_id == REPORT_ID_HOST_STATUS && report_type == HID_REPORT_TYPE_FEATURE) {
+        return read_usb_host_status(buffer, reqlen);
+    }
+#endif
     if (itf == 0) {
         return handle_get_report0(report_id, buffer, reqlen);
     } else {
